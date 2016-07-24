@@ -1,11 +1,13 @@
 #coding=utf-8
+
 import re
 from collections import defaultdict
 from pandas import DataFrame,concat,merge
 from numpy import array,arange,concatenate
 import traceback
-from stats_utils import draw4
-import constants
+from utils.stats import draw4
+# 导入配置文件
+import  constants
 
 def main():
     try:
