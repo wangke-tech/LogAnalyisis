@@ -5,8 +5,7 @@ from collections import defaultdict
 from pandas import DataFrame,concat,merge
 from numpy import array,arange,concatenate
 import traceback
-from utils.stats import draw4
-# 导入配置文件
+from utils.stats import draw4,draw5,getStatsDfByGroup
 import  constants
 
 def main():
@@ -19,38 +18,76 @@ def main():
             content = re.findall(apipat,text)
             df = DataFrame(content,columns=['api','time'])
             df['time'] = df['time'].astype('int')
-            points = getApiPoints(df)
-            #x,y =array([1,1,1,1,1,1]),array([2,30,32,30,100,30])
-            draw4(points['X'],points['Y'])
+            gbdf = getStatsDfByGroup(df,'time','api',sort_key='count',ascending=False)
+            print gbdf
 
             """
             未展示的功能:
+            from uitils import getDataByRate
 
-            打印所有统计结果
+            print '所有api统计结果、不排序:'
+            for index,row in getDataByRate(df).iterrows():
+                print row
 
-            from stats_utils import statistics
-            res = statistics(df,'api','time')
-            print res
+            print '所有api统计结果、按时间降序:'
+            for index,row in getDataByRate(df,strcoltime='time',ascending=False).iterrows():
+                print row
 
-            获取 前20% 统计结果
+            print '所有api统计结果、按时间升序、 前20% ~ 24% :'
+            for index,row in  getPreRateData(df,0.2,0.24,'time',True).iterrows():
+                print row
 
-            print '按时间排序 前20% 的统计结果，按升序排列是:'
-            print getPreRateData(df,0.2,'time',True)
-            print '按时间排序 前20% 的统计结果，按降序排列是:'
-            print getPreRateData(df,0.2,'time',False)
+            print '某个api统计结果、按时间降序、 前20% ~ 24% :'
 
-            获取 后20% 统计结果
+            apidf = getApiDf(df,constants.STR_API_GET_GROUP_NAME)
+            for index,row in  getDataByRate(apidf, 0.2, 0.24, 'time', False).iterrows():
+                print row
 
-            print '按时间排序 后20% 的统计结果，按升序排列是:'
-            print getPostRateData(df,0.2,'time',True)
-            print '按时间排序 后20% 的统计结果，按降序排列是:'
-            print getPostRateData(df,0.2,'time',False)
             """
+            points = getApiPoints(df,gbdf)
+            #x,y =array([1,1,1,1,1,1]),array([2,30,32,30,100,30])
+            draw5(points['X'],points['Y'])
     except Exception:
         print traceback.format_exc()
 
 
-def getApiPoints(df):
+def getApiDf(df,strapi,strcolsort='',ascending=False):
+
+    if not strapi:
+        return
+    res = df[df.api==strapi]
+    return res if not strcolsort else res.sort(columns=[strcolsort],ascending=ascending)
+
+def getXYs(dfapi,strcolstats,apiX):
+    """Get x,y of points.
+
+    Args:
+        dfapi: a specific 'api' dateframe.
+        strcolstats: an important column in the dataframe needed to be stated from which we need get the X,Y info of points.
+        apiX: a contant string defined in constant.py used to mark a certain api. In other words, the same api should have the same x asix.
+
+    Returns:
+        Two array, say, X and Y. Each of these two array concatenate axis of the different apis. For
+        example:
+
+        {'X':array([1,1,1,1,2,2,2]),
+         'Y':array([2.0,23.0,23.0,8.0,2.0,12.0,20.0])}
+
+    Raises:
+        TypeError: An error occurred first accessing the null array in dict.
+    """
+
+    lst =[]
+    #map(lambda l: lst.append(apiX),arange(len(dfapi)))
+    i = len(dfapi)
+    while(i):
+        lst.append(apiX)
+        i -= 1
+    X, Y = array(lst), array(dfapi[strcolstats])
+
+    return X,Y
+
+def getApiPoints(df,gbdf):
     """Generate Points data from the DataFrame .
 
 
@@ -68,70 +105,44 @@ def getApiPoints(df):
     if df.empty:
         return
 
-    dfggc= df[df.api=='/bmis/v1_0/order/getOrderCount'].sort(columns=['time'],ascending=False)
-    dfggn = df[df.api=='/bmis/v1_0/user/getGroupName'].sort(columns=['time'],ascending=False)
-    apis = merge(dfggc,dfggn,on=['api','time'],how='outer')
-    lstapi = [(dfggc,constants.POINTS_X_GET_ORDER_COUNT),(dfggn,constants.POINTS_X_GET_GROUP_NAME)]  # [(objapi,numapiX),]
+    lstapis = list()
+    api_x = 1
 
-    print '********api**********'
-    print apis
-    print '********api end******'
+    for strpath in gbdf.api:
+        ##lstapis['api'].append(row)
+        ##lstapis['apiX'].append(apix)
+        dfapi = getApiDf(df,strpath,strcolsort='time')
+        lstapis.append((dfapi,api_x,strpath))
+        api_x += 1
 
-    def getXYs(dfapi,colstats,apiX):
-        """Get x,y of points.
 
-        Args:
-            dfapi: a specific 'api' dateframe.
-            colstats: an important column in the dataframe needed to be stated from which we need get the X,Y info of points.
-            apiX: a contant string defined in constant.py used to mark a certain api. In other words, the same api should have the same x asix.
-
-        Returns:
-            Two array, say, X and Y. Each of these two array concatenate axis of the different apis. For
-            example:
-
-            {'X':array([1,1,1,1,2,2,2]),
-             'Y':array([2.0,23.0,23.0,8.0,2.0,12.0,20.0])}
-
-i       Raises:
-            TypeError: An error occurred first accessing the null array in dict.
-        """
-
-        lst =[]
-        map(lambda l: lst.append(apiX),arange(len(dfapi)))
-        X, Y = array(lst), array(api[colstats])
-
-        return X,Y
 
     points = defaultdict(array)
 
-    for api,apiX in lstapi:
-
-        X,Y = getXYs(api,'time',apiX)
-
+    for tupapi in lstapis:   # 0=dfapi, 1=api_x, 2=strpath
+        ###for dfapi,api_x,path in api:
+        X,Y = getXYs(tupapi[0],'time',tupapi[1])
+        ##X,Y = getXYs(api,'time',apiX)
         try:
-            # 无异常则不是第一次循环,此时分别连接array
+        # 无异常则不是第一次循环,此时分别连接array
             points['X'] = concatenate((points['X'],X))
             points['Y'] = concatenate((points['Y'],Y))
 
         except TypeError:
-            # 访问points['X']抛出异常,此时初始化points
+        # 访问points['X']抛出异常,此时初始化points
             points['X'] = X
             points['Y'] = Y
-
-            continue
-
+            ##continue
     return points
 
 
-def getPreRateData(df, rate, strcolsort, bolasc):
+def getDataByRate(df, rate_start=0, rate_end=100, strcolsort='', ascending=False):
 
-    return df[df.index < int(rate*len(df.index))].sort(columns=[strcolsort],ascending=bolasc)
-
-
-
-def getPostRateData(df, rate,strcolsort,bolasc):
-
-    return df[df.index > int((1-rate)*len(df.index))].sort(columns=[strcolsort],ascending=bolasc)
+    lendf = len(df.index)
+    res = df[ (df.index > int( rate_start * lendf)) & (df.index < int(rate_end*lendf)) ]
+    if strcolsort:
+        return res.sort(columns=[strcolsort],ascending=ascending)
+    return  res
 
 
 if '__main__' == __name__:

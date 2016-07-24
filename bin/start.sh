@@ -1,3 +1,3 @@
-#!/bin/bash
+#!/bin/sh
 
 python main.py debug $1

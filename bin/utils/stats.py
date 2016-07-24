@@ -5,8 +5,13 @@ from numpy import array
 import traceback
 
 
+def getStatsDfByGroup(df, stats_name, groupby_name, sort_key='', ascending=False):
+    """
+    Args:
+    sort_key : Attention: The value of sort_key must be limited in the collection {'count','max','min'}, otherwise, an exception would ocurr.
+               With usage of the attribute, you can get a sorted result.
 
-def statistics(df, groupby_name, stats_name):
+    """
 
     gdf = df.groupby(groupby_name)
 
@@ -18,9 +23,9 @@ def statistics(df, groupby_name, stats_name):
     dfmax = DataFrame(array(gdf.max()[stats_name]), columns=[stats_name + 'max'])
     dfmin = DataFrame(array(gdf.min()[stats_name]), columns=[stats_name + 'min'])
 #    dfavg = DataFrame(array(gdf.mean()[1]),columns=['avg'])
-    dfresult = concat([dfname, dfcount, dfmax, dfmin], axis=1).sort(columns=[groupby_name +'count'], ascending=False)
+    dfresult = concat([dfname, dfcount, dfmax, dfmin], axis=1)
 
-    return dfresult
+    return dfresult if not sort_key else dfresult.sort(columns=[groupby_name +sort_key], ascending=ascending)
 
 
 def draw1(x, y):
@@ -130,6 +135,6 @@ def draw5(x, y):
     from matplotlib.colors import LogNorm
     from pylab import hist2d, colorbar, show
 
-    hist2d(x, y, bins=100, norm=LogNorm())
+    hist2d(x, y, bins=140, norm=LogNorm())
     colorbar()
     show()
